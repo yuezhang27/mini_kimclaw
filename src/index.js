@@ -37,6 +37,11 @@ async function getUpdates() {
   }
 }
 
+async function pollLoop() {
+  await getUpdates();
+  setTimeout(pollLoop, 2000);
+}
+
 async function sendMessage(chatId, text) {
   try {
     await axios.post(`${API_URL}/sendMessage`, {
@@ -54,4 +59,4 @@ async function sendMessage(chatId, text) {
 
 console.log('Bot started. Polling every 2 seconds...');
 
-setInterval(getUpdates, 2000);
+pollLoop();
