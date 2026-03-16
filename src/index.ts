@@ -1,6 +1,6 @@
 import axios from "axios";
 import dotenv from "dotenv";
-import { saveMessage } from "./database";
+import { registerGroup, saveMessage } from "./database";
 
 dotenv.config();
 
@@ -11,6 +11,8 @@ if (!botToken) {
 }
 
 const apiUrl = `https://api.telegram.org/bot${botToken}`;
+const TRIGGER_WORD = "@MiniClaw";
+const GROUP_CHAT_TYPES = new Set(["group", "supergroup"]);
 
 type TelegramUpdate = {
   update_id: number;
@@ -18,7 +20,7 @@ type TelegramUpdate = {
     message_id: number;
     chat: {
       id: number;
-      type: string;
+      type: "private" | "group" | "supergroup" | string;
     };
     text?: string;
     date: number;
@@ -71,21 +73,37 @@ async function getUpdates(): Promise<void> {
     for (const update of response.data.result) {
       if (update.message?.text) {
         const chatId = update.message.chat.id;
+        const chatType = update.message.chat.type;
         const text = update.message.text;
         const messageId = update.message.message_id;
 
-        console.log(
-          `[Telegram] Received message from chat_id=${chatId}: ${text}`,
-        );
+        if (chatType === "private") {
+          console.log(`[Telegram] Private message from chat_id=${chatId}: ${text}`);
+        } else if (GROUP_CHAT_TYPES.has(chatType)) {
+          if (!text.includes(TRIGGER_WORD)) {
+            console.log(`[Telegram] Group message ignored (no trigger word): ${text}`);
+            lastUpdateId = update.update_id;
+            continue;
+          }
+
+          console.log(`[Telegram] Group message from chat_id=${chatId}: ${text}`);
+
+          const isNewGroup = registerGroup(chatId);
+          if (isNewGroup) {
+            console.log(`[DB] New group registered: ${chatId}`);
+          }
+        } else {
+          lastUpdateId = update.update_id;
+          continue;
+        }
 
         const saved = saveMessage(chatId, messageId, text);
         if (saved) {
           console.log(
-            `[DB] Message saved: id=${saved.id}, chat_id=${saved.chat_id}, status=${saved.status}`,
+            `[DB] Message saved: id=${saved.id}, group_id=${saved.group_id}, status=${saved.status}`,
           );
+          await sendMessage(chatId, `ECHO: 收到消息: ${text}`);
         }
-
-        await sendMessage(chatId, `ECHO: 收到消息: ${text}`);
       }
 
       lastUpdateId = update.update_id;
