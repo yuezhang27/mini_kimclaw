@@ -11,26 +11,41 @@ if (!botToken) {
 }
 
 const apiUrl = `https://api.telegram.org/bot${botToken}`;
-const TRIGGER_WORD = "@MiniClaw";
+const TRIGGER_WORDS = ["@MiniClaw", "@kim_miniclaw_bot"];
 const GROUP_CHAT_TYPES = new Set(["group", "supergroup"]);
 
 type TelegramUpdate = {
   update_id: number;
-  message?: {
-    message_id: number;
-    chat: {
-      id: number;
-      type: "private" | "group" | "supergroup" | string;
-    };
-    text?: string;
-    date: number;
+  message?: TelegramMessage;
+  channel_post?: TelegramMessage;
+};
+
+type TelegramMessage = {
+  message_id: number;
+  chat: {
+    id: number;
+    type: "private" | "group" | "supergroup" | "channel" | string;
   };
+  text?: string;
+  date: number;
 };
 
 type GetUpdatesResponse = {
   ok: boolean;
   result: TelegramUpdate[];
 };
+
+function getIncomingMessage(update: TelegramUpdate): TelegramMessage | null {
+  if (update.message) {
+    return update.message;
+  }
+
+  if (update.channel_post) {
+    return update.channel_post;
+  }
+
+  return null;
+}
 
 let lastUpdateId = 0;
 
@@ -71,28 +86,45 @@ async function getUpdates(): Promise<void> {
     }
 
     for (const update of response.data.result) {
-      if (update.message?.text) {
-        const chatId = update.message.chat.id;
-        const chatType = update.message.chat.type;
-        const text = update.message.text;
-        const messageId = update.message.message_id;
+      // LOG FOR DEBUG
+      // console.log(`[DEBUG] Raw update:`, JSON.stringify(update));
+      const incomingMessage = getIncomingMessage(update);
+
+      if (incomingMessage?.text) {
+        const chatId = incomingMessage.chat.id;
+        const chatType = incomingMessage.chat.type;
+        const text = incomingMessage.text;
+        const messageId = incomingMessage.message_id;
 
         if (chatType === "private") {
-          console.log(`[Telegram] Private message from chat_id=${chatId}: ${text}`);
+          console.log(
+            `[Telegram] Private message from chat_id=${chatId}: ${text}`,
+          );
         } else if (GROUP_CHAT_TYPES.has(chatType)) {
-          if (!text.includes(TRIGGER_WORD)) {
-            console.log(`[Telegram] Group message ignored (no trigger word): ${text}`);
+          // LOG FOR DEBUG
+          // console.log(`[DEBUG] Group message raw text: "${text}"`);
+          const hasTrigger = TRIGGER_WORDS.some((triggerWord) =>
+            text.includes(triggerWord),
+          );
+
+          if (!hasTrigger) {
+            console.log(
+              `[Telegram] Group message ignored (no trigger word): ${text}`,
+            );
             lastUpdateId = update.update_id;
             continue;
           }
 
-          console.log(`[Telegram] Group message from chat_id=${chatId}: ${text}`);
+          console.log(
+            `[Telegram] Group message from chat_id=${chatId}: ${text}`,
+          );
 
           const isNewGroup = registerGroup(chatId);
           if (isNewGroup) {
             console.log(`[DB] New group registered: ${chatId}`);
           }
         } else {
+          console.log(`[Telegram] Unsupported chat type=${chatType}: ${text}`);
           lastUpdateId = update.update_id;
           continue;
         }
