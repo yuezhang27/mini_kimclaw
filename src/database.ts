@@ -193,4 +193,14 @@ export function getOldestPendingMessage(): MessageRecord | null {
   return row ?? null;
 }
 
+export function updateMessageStatus(id: number, status: "pending" | "done" | "error"): void {
+  db.prepare(
+    `
+      UPDATE messages
+      SET status = ?
+      WHERE id = ?
+    `,
+  ).run(status, id);
+}
+
 export default db;
