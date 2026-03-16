@@ -1,5 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { saveMessage } from './database';
 
 dotenv.config();
 
@@ -14,11 +15,13 @@ const apiUrl = `https://api.telegram.org/bot${botToken}`;
 type TelegramUpdate = {
   update_id: number;
   message?: {
+    message_id: number;
     chat: {
       id: number;
       type: string;
     };
     text?: string;
+    date: number;
   };
 };
 
@@ -66,8 +69,15 @@ async function getUpdates(): Promise<void> {
       if (update.message?.text) {
         const chatId = update.message.chat.id;
         const text = update.message.text;
+        const messageId = update.message.message_id;
 
         console.log(`[Telegram] Received message from chat_id=${chatId}: ${text}`);
+
+        const saved = saveMessage(chatId, messageId, text);
+        if (saved) {
+          console.log(`[DB] Message saved: id=${saved.id}, chat_id=${saved.chat_id}, status=${saved.status}`);
+        }
+
         await sendMessage(chatId, `ECHO: 收到消息: ${text}`);
       }
 
