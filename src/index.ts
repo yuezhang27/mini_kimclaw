@@ -1,6 +1,6 @@
 import axios from "axios";
 import dotenv from "dotenv";
-import { registerGroup, saveMessage } from "./database";
+import { getOldestPendingMessage, registerGroup, saveMessage } from "./database";
 
 dotenv.config();
 
@@ -160,5 +160,18 @@ async function pollLoop(): Promise<void> {
   setTimeout(pollLoop, 2000);
 }
 
+async function schedulerLoop(): Promise<void> {
+  const pendingMessage = getOldestPendingMessage();
+
+  if (pendingMessage) {
+    console.log(
+      `[Scheduler] Found pending task: id=${pendingMessage.id}, group_id=${pendingMessage.group_id}, text=${pendingMessage.text}`,
+    );
+  }
+
+  setTimeout(schedulerLoop, 2000);
+}
+
 console.log("Bot started. Polling every 2 seconds...");
 pollLoop();
+schedulerLoop();

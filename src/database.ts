@@ -178,4 +178,19 @@ export function saveMessage(groupId: number, messageId: number, text: string): M
   }
 }
 
+export function getOldestPendingMessage(): MessageRecord | null {
+  const row = db
+    .prepare(
+      `
+        SELECT * FROM messages
+        WHERE status = 'pending'
+        ORDER BY created_at ASC
+        LIMIT 1
+      `,
+    )
+    .get() as MessageRecord | undefined;
+
+  return row ?? null;
+}
+
 export default db;
