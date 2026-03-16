@@ -21,7 +21,7 @@ async function main() {
     "Say hi and introduce yourself briefly in the same language as the user's message";
 
   const response = await anthropic.messages.create({
-    model: "claude-3-5-haiku-latest",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 200,
     system: hardcodedPrompt,
     messages: [
